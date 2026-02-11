@@ -77,8 +77,13 @@ function loadSettings() {
     if (localStorage.getItem("matrix_roomcache") === null) {
         console.log("matrix_roomcache does not exist in localstorage.");
     } else {
-        matrix_roomcache = JSON.parse(localStorage.matrix_roomcache);
-        console.log("matrix_roomcache from localstorage: " + matrix_roomcache);
+        try {
+            matrix_roomcache = JSON.parse(localStorage.matrix_roomcache);
+            console.log("matrix_roomcache from localstorage: " + matrix_roomcache);
+        } catch (e) {
+            console.error("Error parsing matrix_roomcache from localstorage:", e);
+            matrix_roomcache = [];
+        }
     }
     localStorage.removeItem("matrix_avatarLinks");
 
@@ -407,6 +412,8 @@ function getRoomname(roomId, roomLimit) {
         error(jqXHR, status, errorThrown) {
             console.log('failed to fetch ' + query)
             $("#activityicon").hide();
+            // Fallback to roomId if fetching name fails
+            roomnames[roomId] = roomId;
             var nameitems = Object.keys(roomnames).length;
             if (nameitems == roomLimit) {
                 printRoomnames();
