@@ -548,8 +548,15 @@ function getRoomMessages(roomId, checkEventId, checkBody, forceScroll) {
                 let ts = timeConverter(Date.now());
                 roomhtml += `<div class="mymessage">` + converter.makeHtml(checkBody) + `<div class="timestamp">` + matrix_user_id + ` - ` + ts + `</div></div >`;
             }
+
+            var element = document.getElementById("roomcontent");
+            let isNearBottom = (element.scrollHeight - element.scrollTop - element.clientHeight) < 150;
+
             $("#roomcontent").html(roomhtml);
-            scrollToBottom(forceScroll);
+
+            if (forceScroll || isNearBottom) {
+                element.scrollTop = element.scrollHeight;
+            }
         },
         error(jqXHR, status, errorThrown) {
             console.log('failed to fetch ' + query)
