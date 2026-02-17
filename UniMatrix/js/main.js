@@ -448,7 +448,7 @@ function printAvatars() {
     }
 }
 
-function getRoomMessages(roomId) {
+function getRoomMessages(roomId, checkEventId, checkBody) {
     let roomName = roomnames[roomId];
     let query = serverurl + "/_matrix/client/r0/rooms/" + roomId + "/messages?access_token=" + matrix_access_token;
     $("#activityicon").show();
@@ -468,6 +468,7 @@ function getRoomMessages(roomId) {
             let messages = roommessages.chunk;
             let messagecount = messages.length;
             let roomhtml = '';
+            var foundCheckId = 0;
             // Process messages in reverse order (chronological: oldest to newest)
             for (let i = messagecount - 1; i >= 0; i--) {
                 let messagecontent = messages[i].content;
@@ -491,6 +492,16 @@ function getRoomMessages(roomId) {
                     }
                 }
                 //console.log(messagecontent);
+                if (checkEventId != undefined) {
+                    if (messages[i].event_id == checkEventId) {
+                        foundCheckId = 1;
+                    }
+                }
+            }
+
+            if (checkEventId != undefined && foundCheckId == 0) {
+                let ts = timeConverter(Date.now());
+                roomhtml += `<div class="mymessage">` + converter.makeHtml(checkBody) + `<div class="timestamp">` + matrix_user_id + ` - ` + ts + `</div></div >`;
             }
             $("#roomcontent").html(roomhtml);
             // Scroll to bottom
@@ -712,7 +723,7 @@ function sendRoomMessage(roomId) {
             $("#messageinput").blur();
             $("#activityicon").hide();
             console.log(response);
-            getRoomMessages(roomId);
+            getRoomMessages(roomId, response.event_id, message);
             sendingMessage = 0;
         },
         error(jqXHR, status, errorThrown) {
