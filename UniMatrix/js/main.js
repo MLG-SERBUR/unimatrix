@@ -468,7 +468,8 @@ function getRoomMessages(roomId) {
             let messages = roommessages.chunk;
             let messagecount = messages.length;
             let roomhtml = '';
-            for (let i = 0; i < messagecount; i++) {
+            // Process messages in reverse order (chronological: oldest to newest)
+            for (let i = messagecount - 1; i >= 0; i--) {
                 let messagecontent = messages[i].content;
                 let messagetimestamp = messages[i].origin_server_ts;
                 let sender = messages[i].sender;
@@ -492,6 +493,9 @@ function getRoomMessages(roomId) {
                 //console.log(messagecontent);
             }
             $("#roomcontent").html(roomhtml);
+            // Scroll to bottom
+            var element = document.getElementById("roomcontent");
+            element.scrollTop = element.scrollHeight;
         },
         error(jqXHR, status, errorThrown) {
             console.log('failed to fetch ' + query)
@@ -682,11 +686,14 @@ function sendRoomMessage(roomId) {
 
     sendingMessage = 1;
     let oldcontent = $("#roomcontent").html()
-    tempcontent = `<div class="message">` + converter.makeHtml(message) + `
+    tempcontent = oldcontent + `<div class="message">` + converter.makeHtml(message) + `
                      <div class="timestamp">` + matrix_user_id + ` - Sending ..
                      </div>
-                   </div >` + oldcontent;
+                   </div >`;
     $("#roomcontent").html(tempcontent);
+    // Scroll to bottom
+    var element = document.getElementById("roomcontent");
+    element.scrollTop = element.scrollHeight;
 
     let transactionId = Date.now();
     let query = serverurl + "/_matrix/client/r0/rooms/" + roomId + "/send/m.room.message/" + transactionId + "?access_token=" + matrix_access_token;
