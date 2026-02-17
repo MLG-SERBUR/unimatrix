@@ -118,6 +118,17 @@ function convertDIVname(name) {
     return result;
 }
 
+function scrollToBottom(force) {
+    var element = document.getElementById("roomcontent");
+    if (element) {
+        // If force is true, or user is already near the bottom (within 150px)
+        let isNearBottom = (element.scrollHeight - element.scrollTop - element.clientHeight) < 150;
+        if (force || isNearBottom) {
+            element.scrollTop = element.scrollHeight;
+        }
+    }
+}
+
 function getDiscoveryInformation() {
     let query = serverurl + "/.well-known/matrix/client";
     $("#activityicon").show();
@@ -448,7 +459,7 @@ function printAvatars() {
     }
 }
 
-function getRoomMessages(roomId, checkEventId, checkBody) {
+function getRoomMessages(roomId, checkEventId, checkBody, forceScroll) {
     let roomName = roomnames[roomId];
     let query = serverurl + "/_matrix/client/r0/rooms/" + roomId + "/messages?access_token=" + matrix_access_token;
     $("#activityicon").show();
@@ -492,7 +503,11 @@ function getRoomMessages(roomId, checkEventId, checkBody) {
                         let mxc = messagecontent.url;
                         if (mxc) {
                             let httpUrl = serverurl + "/_matrix/client/v1/media/download/" + mxc.substring(6) + "?access_token=" + matrix_access_token;
-                            bodyContent = `<img src="${httpUrl}" style="max-width: 100%; max-height: 300px;" /><br>${converter.makeHtml(messagecontent.body)}`;
+                            let imgStyle = "max-width: 100%; max-height: 400px; display: block; object-fit: contain;";
+                            if (messagecontent.info && messagecontent.info.w && messagecontent.info.h) {
+                                imgStyle += ` aspect-ratio: ${messagecontent.info.w} / ${messagecontent.info.h}; width: ${messagecontent.info.w}px; height: ${messagecontent.info.h}px;`;
+                            }
+                            bodyContent = `<img src="${httpUrl}" loading="lazy" style="${imgStyle}" /><br>${converter.makeHtml(messagecontent.body)}`;
                         } else {
                             bodyContent = converter.makeHtml(messagecontent.body) + " (Image missing URL)";
                         }
@@ -500,7 +515,7 @@ function getRoomMessages(roomId, checkEventId, checkBody) {
                         let mxc = messagecontent.url;
                         if (mxc) {
                             let httpUrl = serverurl + "/_matrix/client/v1/media/download/" + mxc.substring(6) + "?access_token=" + matrix_access_token;
-                            bodyContent = `<video controls src="${httpUrl}" style="max-width: 100%;"></video><br>${converter.makeHtml(messagecontent.body)}`;
+                            bodyContent = `<video controls src="${httpUrl}" preload="metadata" style="max-width: 100%;"></video><br>${converter.makeHtml(messagecontent.body)}`;
                         }
                     } else if (messagecontent.msgtype == "m.audio") {
                         let mxc = messagecontent.url;
@@ -534,9 +549,7 @@ function getRoomMessages(roomId, checkEventId, checkBody) {
                 roomhtml += `<div class="mymessage">` + converter.makeHtml(checkBody) + `<div class="timestamp">` + matrix_user_id + ` - ` + ts + `</div></div >`;
             }
             $("#roomcontent").html(roomhtml);
-            // Scroll to bottom
-            var element = document.getElementById("roomcontent");
-            element.scrollTop = element.scrollHeight;
+            scrollToBottom(forceScroll);
         },
         error(jqXHR, status, errorThrown) {
             console.log('failed to fetch ' + query)
@@ -741,9 +754,7 @@ function sendRoomMessage(roomId) {
                      </div>
                    </div >`;
     $("#roomcontent").html(tempcontent);
-    // Scroll to bottom
-    var element = document.getElementById("roomcontent");
-    element.scrollTop = element.scrollHeight;
+    scrollToBottom(true); // Sending a message should force scroll
 
     let transactionId = Date.now();
     let query = serverurl + "/_matrix/client/r0/rooms/" + roomId + "/send/m.room.message/" + transactionId + "?access_token=" + matrix_access_token;
@@ -790,7 +801,7 @@ function sendRoomMessage(roomId) {
                 }
                 $("#activityicon").hide();
                 console.log(response);
-                getRoomMessages(roomId, response.event_id, content.body);
+                getRoomMessages(roomId, response.event_id, content.body, true);
                 sendingMessage = 0;
             },
             error(jqXHR, status, errorThrown) {
@@ -858,7 +869,7 @@ function openRoom(roomId) {
     let attachwidth = 40; // Approximate width of attachment button
     let remainwidth = devicewidth - buttonwidth - attachwidth - 75;
     $("#messageinput").width(remainwidth);
-    getRoomMessages(roomId);
+    getRoomMessages(roomId, undefined, undefined, true);
     getRoomAlias(roomId, "normal");
     getRoomMembers(roomId, "normal");
 }
