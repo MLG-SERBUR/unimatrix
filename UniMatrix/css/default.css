@@ -14,7 +14,7 @@ body {
 
 #header {
     position: fixed;
-    top: 0px; 
+    top: 0px;
     left: 0px;
     width: 100%;
     height: 3em;
@@ -95,7 +95,7 @@ body {
 }
 
 #sidemenu {
-    position:fixed;
+    position: fixed;
     top: 3em;
     bottom: 0px;
     left: 0px;
@@ -249,15 +249,35 @@ body {
 }
 
 #roominfo_alias {
-    margin:1em;
+    margin: 1em;
 }
 
 #messageinput {
     position: absolute;
-    left: 40px;
+    left: 80px;
     top: 0.5em;
     bottom: 0.5em;
     right: 4em;
+}
+
+#attachmentbutton {
+    position: absolute;
+    left: 40px;
+    width: 2em;
+    height: 2em;
+    padding: 0.5em;
+    top: 0;
+}
+
+#attachmentbutton:hover {
+    cursor: pointer;
+    background-color: #333;
+    border-radius: 0.5em;
+}
+
+#attachmentbutton img {
+    width: 100%;
+    height: 100%;
 }
 
 #messagebutton {
@@ -304,22 +324,26 @@ body {
 }
 
 /* Markdown Styles */
-.message p, .mymessage p {
+.message p,
+.mymessage p {
     margin: 0;
 }
 
-.message p + p, .mymessage p + p {
+.message p+p,
+.mymessage p+p {
     margin-top: 1em;
 }
 
-.message code, .mymessage code {
+.message code,
+.mymessage code {
     background-color: rgba(255, 255, 255, 0.1);
     padding: 2px 4px;
     border-radius: 3px;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
 }
 
-.message pre, .mymessage pre {
+.message pre,
+.mymessage pre {
     background-color: rgba(0, 0, 0, 0.3);
     padding: 1em;
     border-radius: 5px;
@@ -327,24 +351,30 @@ body {
     margin: 1em 0;
 }
 
-.message pre code, .mymessage pre code {
+.message pre code,
+.mymessage pre code {
     background-color: transparent;
     padding: 0;
 }
 
-.message blockquote, .mymessage blockquote {
+.message blockquote,
+.mymessage blockquote {
     border-left: 4px solid rgba(255, 255, 255, 0.3);
     margin: 1em 0;
     padding-left: 1em;
     color: rgba(255, 255, 255, 0.7);
 }
 
-.message ul, .message ol, .mymessage ul, .mymessage ol {
+.message ul,
+.message ol,
+.mymessage ul,
+.mymessage ol {
     margin: 1em 0;
     padding-left: 2em;
 }
 
-.message a, .mymessage a {
+.message a,
+.mymessage a {
     color: #00aaff;
     text-decoration: underline;
 }
@@ -353,7 +383,8 @@ body {
     color: #ffffff;
 }
 
-.message img, .mymessage img {
+.message img,
+.mymessage img {
     max-width: 100%;
     height: auto;
     border-radius: 5px;

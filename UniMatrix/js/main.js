@@ -484,12 +484,42 @@ function getRoomMessages(roomId, checkEventId, checkBody) {
                 }
 
                 if (messagecontent.hasOwnProperty("msgtype")) {
-                    if (messagecontent.msgtype == "m.text") {
-                        roomhtml += `<div class="` + messageclass + `">` + converter.makeHtml(messagecontent.body) + `<div class="timestamp">` + sender + ` - ` + ts + `</div></div >`;
+                    let bodyContent = "";
+
+                    if (messagecontent.msgtype == "m.text" || messagecontent.msgtype == "m.notice") {
+                        bodyContent = converter.makeHtml(messagecontent.body);
+                    } else if (messagecontent.msgtype == "m.image") {
+                        let mxc = messagecontent.url;
+                        if (mxc) {
+                            let httpUrl = serverurl + "/_matrix/client/v1/media/download/" + mxc.substring(6) + "?access_token=" + matrix_access_token;
+                            bodyContent = `<img src="${httpUrl}" style="max-width: 100%; max-height: 300px;" /><br>${converter.makeHtml(messagecontent.body)}`;
+                        } else {
+                            bodyContent = converter.makeHtml(messagecontent.body) + " (Image missing URL)";
+                        }
+                    } else if (messagecontent.msgtype == "m.video") {
+                        let mxc = messagecontent.url;
+                        if (mxc) {
+                            let httpUrl = serverurl + "/_matrix/client/v1/media/download/" + mxc.substring(6) + "?access_token=" + matrix_access_token;
+                            bodyContent = `<video controls src="${httpUrl}" style="max-width: 100%;"></video><br>${converter.makeHtml(messagecontent.body)}`;
+                        }
+                    } else if (messagecontent.msgtype == "m.audio") {
+                        let mxc = messagecontent.url;
+                        if (mxc) {
+                            let httpUrl = serverurl + "/_matrix/client/v1/media/download/" + mxc.substring(6) + "?access_token=" + matrix_access_token;
+                            bodyContent = `<audio controls src="${httpUrl}"></audio><br>${converter.makeHtml(messagecontent.body)}`;
+                        }
+                    } else if (messagecontent.msgtype == "m.file") {
+                        let mxc = messagecontent.url;
+                        if (mxc) {
+                            let httpUrl = serverurl + "/_matrix/client/v1/media/download/" + mxc.substring(6) + "?access_token=" + matrix_access_token;
+                            bodyContent = `<a href="${httpUrl}" target="_blank">📄 ${converter.makeHtml(messagecontent.body)}</a>`;
+                        }
+                    } else {
+                        // Fallback for unknown types
+                        bodyContent = converter.makeHtml(messagecontent.body);
                     }
-                    if (messagecontent.msgtype == "m.notice") {
-                        roomhtml += `<div class="` + messageclass + `">` + converter.makeHtml(messagecontent.body) + `<div class="timestamp">` + sender + ` - ` + ts + `</div></div >`;
-                    }
+
+                    roomhtml += `<div class="${messageclass}">${bodyContent}<div class="timestamp">${sender} - ${ts}</div></div>`;
                 }
                 //console.log(messagecontent);
                 if (checkEventId != undefined) {
@@ -614,7 +644,7 @@ function getRoomAvatar(roomId) {
                     try {
                         let mxclink = response.chunk[0].content.url;
                         let path = mxclink.slice(6);
-                        let avatarlink = "https://matrix.org/_matrix/client/v1/media/download/" + path + "?access_token=" + matrix_access_token;
+                        let avatarlink = serverurl + "/_matrix/client/v1/media/download/" + path + "?access_token=" + matrix_access_token;
                         //console.log(avatarlink);
                         setRoomAvatar(roomId, avatarlink);
                         let avataritem = {
@@ -690,14 +720,23 @@ function setRoomAvatar(roomId, avatarlink, avatarColor) {
 function sendRoomMessage(roomId) {
 
     let message = $("#messageinput").val();
+    let fileInput = document.getElementById('chat_file_input');
+    let hasFile = fileInput && fileInput.files.length > 0;
 
-    if (roomId == "" || message == "") {
+    if (roomId == "" || (message == "" && !hasFile)) {
         return;
     }
 
     sendingMessage = 1;
-    let oldcontent = $("#roomcontent").html()
-    tempcontent = oldcontent + `<div class="message">` + converter.makeHtml(message) + `
+    let oldcontent = $("#roomcontent").html();
+
+    // Optimistic UI update
+    let displayMessage = message;
+    if (hasFile) {
+        displayMessage = (message ? message + "<br>" : "") + "[Uploading " + fileInput.files[0].name + "...]";
+    }
+
+    tempcontent = oldcontent + `<div class="message">` + converter.makeHtml(displayMessage) + `
                      <div class="timestamp">` + matrix_user_id + ` - Sending ..
                      </div>
                    </div >`;
@@ -710,28 +749,62 @@ function sendRoomMessage(roomId) {
     let query = serverurl + "/_matrix/client/r0/rooms/" + roomId + "/send/m.room.message/" + transactionId + "?access_token=" + matrix_access_token;
     $("#activityicon").show();
 
-    $.ajax({
-        url: query,
-        type: 'PUT',
-        data: JSON.stringify({
+    let promise;
+    if (hasFile) {
+        let file = fileInput.files[0];
+        promise = uploadMedia(file).then(content_uri => {
+            let msgType = "m.file";
+            if (file.type.startsWith("image/")) msgType = "m.image";
+            else if (file.type.startsWith("video/")) msgType = "m.video";
+            else if (file.type.startsWith("audio/")) msgType = "m.audio";
+
+            return {
+                body: message || file.name,
+                msgtype: msgType,
+                url: content_uri,
+                info: {
+                    mimetype: file.type,
+                    size: file.size
+                }
+            };
+        });
+    } else {
+        promise = Promise.resolve({
             body: message,
             msgtype: "m.text",
-        }),
-        dataType: 'json',
-        success(response) {
-            $("#messageinput").val("");
-            $("#messageinput").blur();
-            $("#activityicon").hide();
-            console.log(response);
-            getRoomMessages(roomId, response.event_id, message);
-            sendingMessage = 0;
-        },
-        error(jqXHR, status, errorThrown) {
-            console.log('failed to fetch ' + query)
-            console.log(status);
-            $("#activityicon").hide();
-            sendingMessage = 0;
-        },
+        });
+    }
+
+    promise.then(content => {
+        $.ajax({
+            url: query,
+            type: 'PUT',
+            data: JSON.stringify(content),
+            dataType: 'json',
+            success(response) {
+                $("#messageinput").val("");
+                $("#messageinput").blur();
+                if (fileInput) {
+                    fileInput.value = "";
+                    updateAttachmentStatus(); // Reset button color
+                }
+                $("#activityicon").hide();
+                console.log(response);
+                getRoomMessages(roomId, response.event_id, content.body);
+                sendingMessage = 0;
+            },
+            error(jqXHR, status, errorThrown) {
+                console.log('failed to fetch ' + query)
+                console.log(status);
+                $("#activityicon").hide();
+                sendingMessage = 0;
+            },
+        });
+    }).catch(error => {
+        console.error("Error sending message:", error);
+        $("#activityicon").hide();
+        sendingMessage = 0;
+        // Optionally show error in UI
     });
 }
 
@@ -763,7 +836,11 @@ function openRoom(roomId) {
     currentRoomName = roomName;
     getRoomAvatar(roomId);
     $("#header_text").html("[ " + roomName + " ]");
-    let inputhtml = `<input type="text" id="messageinput">
+    let inputhtml = `<input type="file" id="chat_file_input" style="display: none;" onchange="updateAttachmentStatus()">
+                     <div id="attachmentbutton" onclick="triggerAttachment()">
+                        <img src="images/attach.svg" />
+                     </div>
+                     <input type="text" id="messageinput">
                      <div id="messagebutton" onclick=sendRoomMessage("`+ roomId + `")>
                      <img src="images/send.png" /></div>`;
     $("#roominput").html(inputhtml);
@@ -778,11 +855,51 @@ function openRoom(roomId) {
     $("#header_mainbutton").html('<img src="images/back.png" onclick="closeRoom()" />');
     let devicewidth = $(window).width();
     let buttonwidth = $("#messagebutton").width();
-    let remainwidth = devicewidth - buttonwidth - 65;
+    let attachwidth = 40; // Approximate width of attachment button
+    let remainwidth = devicewidth - buttonwidth - attachwidth - 75;
     $("#messageinput").width(remainwidth);
     getRoomMessages(roomId);
     getRoomAlias(roomId, "normal");
     getRoomMembers(roomId, "normal");
+}
+
+function triggerAttachment() {
+    $("#chat_file_input").click();
+}
+
+function updateAttachmentStatus() {
+    let fileInput = document.getElementById('chat_file_input');
+    if (fileInput.files.length > 0) {
+        $("#attachmentbutton").css("background-color", "#4CAF50"); // Green indicator
+    } else {
+        $("#attachmentbutton").css("background-color", "transparent");
+    }
+}
+
+function uploadMedia(file) {
+    return new Promise((resolve, reject) => {
+        let query = serverurl + "/_matrix/media/r0/upload?filename=" + encodeURIComponent(file.name) + "&access_token=" + matrix_access_token;
+
+        let reader = new FileReader();
+        reader.onload = function (e) {
+            $.ajax({
+                url: query,
+                type: 'POST',
+                data: e.target.result,
+                processData: false,
+                contentType: file.type,
+                success(response) {
+                    console.log("Upload successful:", response);
+                    resolve(response.content_uri);
+                },
+                error(jqXHR, status, errorThrown) {
+                    console.error("Upload failed:", status, errorThrown);
+                    reject(errorThrown);
+                }
+            });
+        };
+        reader.readAsArrayBuffer(file);
+    });
 }
 
 function closeRoom() {
