@@ -12,6 +12,7 @@ var nextBatch = "";
 var enableClientsync = 0;
 var matrix_roomcache = [];
 var sendingMessage = 0;
+var converter = new showdown.Converter();
 
 function loadSettings() {
     if (localStorage.getItem("matrix_server") === null) {
@@ -163,7 +164,7 @@ function syncClient(since) {
     else {
         console.log("Running incremental sync ..")
         query = serverurl + "/_matrix/client/r0/sync?since=" + since + "&access_token=" + matrix_access_token;
-    } 
+    }
     //$("#activityicon").show();
     $.ajax({
         url: query,
@@ -198,15 +199,15 @@ function checkLogindata() {
     $("#login_notification").html("");
 
     let loginserver = $("#login_server").val();
-    let loginuser   = $("#login_username").val();
-    let loginpass   = $("#login_password").val();
+    let loginuser = $("#login_username").val();
+    let loginpass = $("#login_password").val();
 
     if (loginserver == "" || loginuser == "" || loginpass == "") {
         $("#login_notification").html("Information missing, please complete all inputs.")
     }
     else {
-        matrix_server   = loginserver;
-        matrix_user     = loginuser;
+        matrix_server = loginserver;
+        matrix_user = loginuser;
         matrix_password = loginpass;
         authenticateUser();
     }
@@ -320,7 +321,7 @@ function getRoomlist() {
     let query = serverurl + "/_matrix/client/r0/joined_rooms?access_token=" + matrix_access_token;
     var querydata;
     $("#activityicon").show();
-    
+
     $.ajax({
         url: query,
         type: 'GET',
@@ -337,7 +338,7 @@ function getRoomlist() {
             }
         },
         error(jqXHR, status, errorThrown) {
-            console.log('failed to fetch ' + query) 
+            console.log('failed to fetch ' + query)
             $("#activityicon").hide();
         },
     });
@@ -482,10 +483,10 @@ function getRoomMessages(roomId) {
 
                 if (messagecontent.hasOwnProperty("msgtype")) {
                     if (messagecontent.msgtype == "m.text") {
-                        roomhtml += `<div class="` + messageclass + `">` + messagecontent.body + `<br/><div class="timestamp">` + sender + ` - ` + ts + `</div></div >`;
+                        roomhtml += `<div class="` + messageclass + `">` + converter.makeHtml(messagecontent.body) + `<div class="timestamp">` + sender + ` - ` + ts + `</div></div >`;
                     }
                     if (messagecontent.msgtype == "m.notice") {
-                        roomhtml += `<div class="`+ messageclass + `">` + messagecontent.body + `<br/><div class="timestamp">` + sender + ` - ` + ts + `</div></div >`;
+                        roomhtml += `<div class="` + messageclass + `">` + converter.makeHtml(messagecontent.body) + `<div class="timestamp">` + sender + ` - ` + ts + `</div></div >`;
                     }
                 }
                 //console.log(messagecontent);
@@ -681,7 +682,7 @@ function sendRoomMessage(roomId) {
 
     sendingMessage = 1;
     let oldcontent = $("#roomcontent").html()
-    tempcontent = `<div class="message">` + message + `<br />
+    tempcontent = `<div class="message">` + converter.makeHtml(message) + `
                      <div class="timestamp">` + matrix_user_id + ` - Sending ..
                      </div>
                    </div >` + oldcontent;
@@ -813,7 +814,7 @@ function settingDialog(setting) {
     console.log("requesting user input for " + setting + " ..");
     var dialoghtml = '';
     var currentvalue = eval(setting);
-    dialoghtml += `<input type="number" id="setting_newvalue" min="1" max="500" value="` + currentvalue +`">`;
+    dialoghtml += `<input type="number" id="setting_newvalue" min="1" max="500" value="` + currentvalue + `">`;
     dialoghtml += `<button onclick='updateSetting("` + setting + `")'>Apply</button>`
     $("#settingdialog").html(dialoghtml);
     $("#settingdialog").show();
@@ -897,7 +898,7 @@ function createRoom() {
         return;
     }
     newRoomalias = newRoomname.replace(/ /g, "_").toLowerCase();
-    
+
     if (newVisibility == "private") {
         preset = "private_chat";
     }

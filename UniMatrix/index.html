@@ -1,5 +1,6 @@
 ﻿<!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8" />
     <title>UniMatrix</title>
@@ -16,6 +17,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
+
 <body>
     <div id="header">
         <div id="header_mainbutton"><img src="images/menu.png" onclick="toggleSidemenu()" /></div>
@@ -23,7 +25,8 @@
         <div id="header_text"></div>
     </div>
     <div id="sidemenu">
-        <div id="newchat" class="menuitem" onclick="openCreateRoomDialog()"><img src="images/new.png" />Create room</div>
+        <div id="newchat" class="menuitem" onclick="openCreateRoomDialog()"><img src="images/new.png" />Create room
+        </div>
         <div id="settings" class="menuitem" onclick="openSettings()"><img src="images/settings.png" />Settings</div>
         <!--<div id="sync" class="menuitem" onclick="syncClient()"><img src="images/sync.png" />Sync now</div>-->
         <!--<div id="about" class="menuitem"><img src="images/help.png" />About</div>-->
@@ -52,15 +55,18 @@
             <table id="logintable">
                 <tr>
                     <td><span class="login_label">Server</span></td>
-                    <td><input type="text" id="login_server" class="login_input" name="login_server" size="15" value="matrix.org" /></td>
+                    <td><input type="text" id="login_server" class="login_input" name="login_server" size="15"
+                            value="matrix.org" /></td>
                 </tr>
                 <tr>
                     <td><span class="login_label">Username</span></td>
-                    <td><input type="text" id="login_username" class="login_input" name="login_username" size="15" /></td>
+                    <td><input type="text" id="login_username" class="login_input" name="login_username" size="15" />
+                    </td>
                 </tr>
                 <tr>
                     <td><span class="login_label">Password</span></td>
-                    <td><input type="password" id="login_password" class="login_input" name="login_password" size="15" /></td>
+                    <td><input type="password" id="login_password" class="login_input" name="login_password"
+                            size="15" /></td>
                 </tr>
             </table>
             <div id="login_button" class="wbutton" onclick="checkLogindata()">Login</div>
@@ -71,6 +77,8 @@
     <div id="activityicon"><img src="images/activity_on.gif" /></div>
     <div id="syncled"></div>
     <script src="js/jquery-3.7.1.min.js"></script>
+    <script src="js/showdown.min.js"></script>
     <script src="js/main.js"></script>
 </body>
+
 </html>

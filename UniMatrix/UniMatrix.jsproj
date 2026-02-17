@@ -144,6 +144,7 @@
     <Content Include="images\StoreLogo.png" />
     <Content Include="images\Wide310x150Logo.scale-200.png" />
     <Content Include="js\jquery-3.7.1.min.js" />
+    <Content Include="js\showdown.min.js" />
     <Content Include="js\main.js" />
     <Content Include="css\default.css" />
     <None Include="UniMatrix_TemporaryKey.pfx" />
