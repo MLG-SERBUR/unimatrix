@@ -778,6 +778,7 @@ function sendRoomMessage(roomId) {
 
             return {
                 body: message || file.name,
+                filename: file.name,
                 msgtype: msgType,
                 url: content_uri,
                 info: {
