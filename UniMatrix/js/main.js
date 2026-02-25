@@ -11,6 +11,7 @@ var currentRoomName = "";
 var nextBatch = "";
 var enableClientsync = 0;
 var matrix_roomcache = [];
+var matrix_usercache = [];
 var sendingMessage = 0;
 var converter = new showdown.Converter();
 
@@ -80,10 +81,22 @@ function loadSettings() {
     } else {
         try {
             matrix_roomcache = JSON.parse(localStorage.matrix_roomcache);
-            console.log("matrix_roomcache from localstorage: " + matrix_roomcache);
+            console.log("matrix_roomcache from localstorage: " + matrix_roomcache.length + " rooms");
         } catch (e) {
             console.error("Error parsing matrix_roomcache from localstorage:", e);
             matrix_roomcache = [];
+        }
+    }
+
+    if (localStorage.getItem("matrix_usercache") === null) {
+        console.log("matrix_usercache does not exist in localstorage.");
+    } else {
+        try {
+            matrix_usercache = JSON.parse(localStorage.matrix_usercache);
+            console.log("matrix_usercache from localstorage: " + matrix_usercache.length + " users");
+        } catch (e) {
+            console.error("Error parsing matrix_usercache from localstorage:", e);
+            matrix_usercache = [];
         }
     }
     localStorage.removeItem("matrix_avatarLinks");
@@ -109,6 +122,62 @@ function timeConverter(UNIX_timestamp) {
 function getRandomColor() {
     let randomcolor = "#" + ((1 << 24) * Math.random() | 0).toString(16).padStart(6, "0");
     return randomcolor;
+}
+
+function getUserColor(userId) {
+    if (!userId) return "#FFFFFF";
+    // Extract username part (e.g., @user from @user:matrix.org)
+    let username = userId.split(":")[0];
+    if (username.startsWith("@")) username = username.substring(1);
+
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+        hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+
+    // Convert to HSL for controlled visibility
+    // Hue: 0-360, Saturation: 70%, Lightness: 65% (good for dark backgrounds)
+    let h = Math.abs(hash % 360);
+    return `hsl(${h}, 70%, 65%)`;
+}
+
+function fetchUserProfile(userId) {
+    // Check cache first
+    let cached = matrix_usercache.find(u => u.userId == userId);
+    if (cached) return Promise.resolve(cached);
+
+    let query = serverurl + "/_matrix/client/v3/profile/" + userId + "?access_token=" + matrix_access_token;
+    return new Promise((resolve) => {
+        $.ajax({
+            url: query,
+            type: 'GET',
+            dataType: 'json',
+            success(response) {
+                let avatarUrl = "";
+                if (response.avatar_url) {
+                    avatarUrl = serverurl + "/_matrix/client/v1/media/download/" + response.avatar_url.substring(6) + "?access_token=" + matrix_access_token;
+                }
+                let userData = {
+                    userId: userId,
+                    displayname: response.displayname || userId,
+                    avatarUrl: avatarUrl
+                };
+                matrix_usercache.push(userData);
+                localStorage.matrix_usercache = JSON.stringify(matrix_usercache);
+                resolve(userData);
+            },
+            error() {
+                // Fallback for failed fetch
+                let userData = {
+                    userId: userId,
+                    displayname: userId,
+                    avatarUrl: ""
+                };
+                resolve(userData);
+            }
+        });
+    });
 }
 
 function convertDIVname(name) {
@@ -534,7 +603,32 @@ function getRoomMessages(roomId, checkEventId, checkBody, forceScroll) {
                         bodyContent = converter.makeHtml(messagecontent.body);
                     }
 
-                    roomhtml += `<div class="${messageclass}">${bodyContent}<div class="timestamp">${sender} - ${ts}</div></div>`;
+                    let userColor = getUserColor(sender);
+                    let userProfile = matrix_usercache.find(u => u.userId == sender);
+                    let displayname = userProfile ? userProfile.displayname : sender;
+                    let avatarHtml = "";
+
+                    if (userProfile && userProfile.avatarUrl) {
+                        avatarHtml = `<img src="${userProfile.avatarUrl}" class="user-avatar" />`;
+                    } else {
+                        // Generic avatar with initial
+                        let initial = (displayname.startsWith("@") ? displayname.substring(1) : displayname).charAt(0).toUpperCase();
+                        avatarHtml = `<div class="user-avatar generic-user-avatar" style="background-color: ${userColor}">${initial}</div>`;
+                    }
+
+                    if (!userProfile) {
+                        fetchUserProfile(sender); // Trigger fetch for next time
+                    }
+
+                    roomhtml += `
+                        <div class="${messageclass}">
+                            <div class="message-header">
+                                ${avatarHtml}
+                                <div class="sender" style="color: ${userColor}">${displayname}</div>
+                            </div>
+                            <div class="message-body">${bodyContent}</div>
+                            <div class="timestamp">${ts} - ${sender.split(":")[1]}</div>
+                        </div>`;
                 }
                 //console.log(messagecontent);
                 if (checkEventId != undefined) {
@@ -546,7 +640,26 @@ function getRoomMessages(roomId, checkEventId, checkBody, forceScroll) {
 
             if (checkEventId != undefined && foundCheckId == 0) {
                 let ts = timeConverter(Date.now());
-                roomhtml += `<div class="mymessage">` + converter.makeHtml(checkBody) + `<div class="timestamp">` + matrix_user_id + ` - ` + ts + `</div></div >`;
+                let userColor = getUserColor(matrix_user_id);
+                let userProfile = matrix_usercache.find(u => u.userId == matrix_user_id);
+                let displayname = userProfile ? userProfile.displayname : matrix_user_id;
+                let avatarHtml = "";
+                if (userProfile && userProfile.avatarUrl) {
+                    avatarHtml = `<img src="${userProfile.avatarUrl}" class="user-avatar" />`;
+                } else {
+                    let initial = (displayname.startsWith("@") ? displayname.substring(1) : displayname).charAt(0).toUpperCase();
+                    avatarHtml = `<div class="user-avatar generic-user-avatar" style="background-color: ${userColor}">${initial}</div>`;
+                }
+
+                roomhtml += `
+                    <div class="mymessage">
+                        <div class="message-header">
+                            ${avatarHtml}
+                            <div class="sender" style="color: ${userColor}">${displayname}</div>
+                        </div>
+                        <div class="message-body">${converter.makeHtml(checkBody)}</div>
+                        <div class="timestamp">${ts} - ${matrix_user_id.split(":")[1]}</div>
+                    </div>`;
             }
 
             var element = document.getElementById("roomcontent");
@@ -756,10 +869,26 @@ function sendRoomMessage(roomId) {
         displayMessage = (message ? message + "<br>" : "") + "[Uploading " + fileInput.files[0].name + "...]";
     }
 
-    tempcontent = oldcontent + `<div class="message">` + converter.makeHtml(displayMessage) + `
-                     <div class="timestamp">` + matrix_user_id + ` - Sending ..
-                     </div>
-                   </div >`;
+    let userColor = getUserColor(matrix_user_id);
+    let userProfile = matrix_usercache.find(u => u.userId == matrix_user_id);
+    let displayname = userProfile ? userProfile.displayname : matrix_user_id;
+    let avatarHtml = "";
+    if (userProfile && userProfile.avatarUrl) {
+        avatarHtml = `<img src="${userProfile.avatarUrl}" class="user-avatar" />`;
+    } else {
+        let initial = (displayname.startsWith("@") ? displayname.substring(1) : displayname).charAt(0).toUpperCase();
+        avatarHtml = `<div class="user-avatar generic-user-avatar" style="background-color: ${userColor}">${initial}</div>`;
+    }
+
+    tempcontent = oldcontent + `
+        <div class="message">
+            <div class="message-header">
+                ${avatarHtml}
+                <div class="sender" style="color: ${userColor}">${displayname}</div>
+            </div>
+            <div class="message-body">${converter.makeHtml(displayMessage)}</div>
+            <div class="timestamp">Sending .. - ${matrix_user_id.split(":")[1]}</div>
+        </div>`;
     $("#roomcontent").html(tempcontent);
     scrollToBottom(true); // Sending a message should force scroll
 
@@ -1150,7 +1279,144 @@ $(document).ready(function () {
 
     loadSettings();
     checkLoginstate();
-    //syncClient(nextBatch);
+
+    let zoomScale = 1;
+    let lastTouchDist = 0;
+    let isPanning = false;
+    let startX = 0, startY = 0;
+    let translateX = 0, translateY = 0;
+    let lastTranslateX = 0, lastTranslateY = 0;
+    let overlayDragged = false;
+
+    function showFullScreen(url) {
+        if (!url) return;
+        zoomScale = 1;
+        translateX = 0;
+        translateY = 0;
+        lastTranslateX = 0;
+        lastTranslateY = 0;
+        overlayDragged = false;
+        updateImageTransform();
+        $("#full-screen-image").attr("src", url);
+        $("#full-screen-overlay").css("display", "flex");
+    }
+
+    function closeFullScreen() {
+        $("#full-screen-overlay").hide();
+        $("#full-screen-image").attr("src", "");
+    }
+
+    function updateImageTransform() {
+        $("#full-screen-image").css("transform", `translate(${translateX}px, ${translateY}px) scale(${zoomScale})`);
+    }
+
+    const overlay = document.getElementById("full-screen-overlay");
+    const img = document.getElementById("full-screen-image");
+
+    overlay.addEventListener("wheel", function (e) {
+        if (e.ctrlKey) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoomScale *= delta;
+            zoomScale = Math.max(0.5, Math.min(zoomScale, 5));
+            overlayDragged = true;
+            updateImageTransform();
+        }
+    }, { passive: false });
+
+    overlay.addEventListener("touchstart", function (e) {
+        if (e.touches.length === 1) {
+            isPanning = true;
+            startX = e.touches[0].clientX - lastTranslateX;
+            startY = e.touches[0].clientY - lastTranslateY;
+            overlayDragged = false;
+        } else if (e.touches.length === 2) {
+            isPanning = false;
+            lastTouchDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+        }
+    });
+
+    overlay.addEventListener("touchmove", function (e) {
+        if (e.touches.length === 1 && isPanning) {
+            translateX = e.touches[0].clientX - startX;
+            translateY = e.touches[0].clientY - startY;
+            if (Math.abs(translateX - lastTranslateX) > 5 || Math.abs(translateY - lastTranslateY) > 5) {
+                overlayDragged = true;
+            }
+            updateImageTransform();
+        } else if (e.touches.length === 2) {
+            const dist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const delta = dist / lastTouchDist;
+            zoomScale *= delta;
+            zoomScale = Math.max(0.5, Math.min(zoomScale, 5));
+            lastTouchDist = dist;
+            overlayDragged = true;
+            updateImageTransform();
+        }
+    });
+
+    overlay.addEventListener("touchend", function (e) {
+        isPanning = false;
+        lastTranslateX = translateX;
+        lastTranslateY = translateY;
+
+        // If it wasn't a drag/zoom, close the overlay
+        if (!overlayDragged) {
+            closeFullScreen();
+        }
+    });
+
+    // Handle mouse panning if needed
+    overlay.addEventListener("mousedown", function (e) {
+        isPanning = true;
+        startX = e.clientX - lastTranslateX;
+        startY = e.clientY - lastTranslateY;
+        overlayDragged = false;
+    });
+
+    window.addEventListener("mousemove", function (e) {
+        if (isPanning && $("#full-screen-overlay").is(":visible")) {
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
+            if (Math.abs(translateX - lastTranslateX) > 5 || Math.abs(translateY - lastTranslateY) > 5) {
+                overlayDragged = true;
+            }
+            updateImageTransform();
+        }
+    });
+
+    window.addEventListener("mouseup", function (e) {
+        if (isPanning) {
+            isPanning = false;
+            lastTranslateX = translateX;
+            lastTranslateY = translateY;
+
+            // Only close if it was a click, not a drag
+            if (!overlayDragged && $(e.target).closest("#full-screen-overlay").length) {
+                closeFullScreen();
+            }
+        }
+    });
+
+    // Remove the old onclick from HTML to use this logic exclusively
+    $("#full-screen-overlay").removeAttr("onclick");
+
+    // syncClient(nextBatch);
+
+    // Delegate click events for images in messages
+    $("#roomcontent").on("click", "img", function (e) {
+        // Prevent clicking user avatars for full screen
+        if ($(this).hasClass("user-avatar")) return;
+
+        showFullScreen($(this).attr("src"));
+    });
 });
 
 setInterval(TimerRun, 20000);
+

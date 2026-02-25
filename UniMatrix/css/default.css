@@ -318,6 +318,38 @@ body {
     margin-right: 1em;
 }
 
+.message-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5em;
+}
+
+.user-avatar {
+    width: 2em;
+    height: 2em;
+    border-radius: 50%;
+    margin-right: 0.75em;
+    object-fit: cover;
+}
+
+.generic-user-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 0.8em;
+}
+
+.sender {
+    font-weight: bold;
+    font-size: 0.9em;
+}
+
+.message-body {
+    word-wrap: break-word;
+}
+
 .timestamp {
     margin-top: 1em;
     font-size: 0.7em;
@@ -571,9 +603,25 @@ body {
     display: none;
 }
 
-#createroom_notification {
-    margin-top: 2em;
-    margin-left: 1em;
-    width: 90%;
-    color: red;
+
+#full-screen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+    touch-action: none;
+}
+
+#full-screen-image {
+    max-width: 95%;
+    max-height: 95%;
+    object-fit: contain;
+    user-select: none;
 }
