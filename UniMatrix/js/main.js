@@ -505,7 +505,7 @@ function getRoomMessages(roomId, checkEventId, checkBody, forceScroll) {
                             let httpUrl = serverurl + "/_matrix/client/v1/media/download/" + mxc.substring(6) + "?access_token=" + matrix_access_token;
                             let imgStyle = "max-width: 100%; max-height: 400px; display: block; object-fit: contain;";
                             if (messagecontent.info && messagecontent.info.w && messagecontent.info.h) {
-                                imgStyle += ` aspect-ratio: ${messagecontent.info.w} / ${messagecontent.info.h}; width: ${messagecontent.info.w}px; height: ${messagecontent.info.h}px;`;
+                                imgStyle += ` aspect-ratio: ${messagecontent.info.w} / ${messagecontent.info.h}; width: 100%; max-width: ${messagecontent.info.w}px; height: auto;`;
                             }
                             bodyContent = `<img src="${httpUrl}" loading="lazy" style="${imgStyle}" /><br>${converter.makeHtml(messagecontent.body)}`;
                         } else {
