@@ -1,4 +1,4 @@
-﻿var matrix_server, matrix_user, matrix_user_id, matrix_password, matrix_device_id;
+var matrix_server, matrix_user, matrix_user_id, matrix_password, matrix_device_id;
 var serverurl;
 var matrix_access_token = "";
 var matrix_login_token = "";
@@ -899,21 +899,30 @@ function sendRoomMessage(roomId) {
     let promise;
     if (hasFile) {
         let file = fileInput.files[0];
-        promise = uploadMedia(file).then(content_uri => {
+        let dimensionsPromise = file.type.startsWith("image/") ? getImageDimensions(file) : Promise.resolve({});
+
+        promise = Promise.all([uploadMedia(file), dimensionsPromise]).then(([content_uri, dimensions]) => {
             let msgType = "m.file";
             if (file.type.startsWith("image/")) msgType = "m.image";
             else if (file.type.startsWith("video/")) msgType = "m.video";
             else if (file.type.startsWith("audio/")) msgType = "m.audio";
+
+            let info = {
+                mimetype: file.type,
+                size: file.size
+            };
+
+            if (dimensions.w && dimensions.h) {
+                info.w = dimensions.w;
+                info.h = dimensions.h;
+            }
 
             return {
                 body: message || file.name,
                 filename: file.name,
                 msgtype: msgType,
                 url: content_uri,
-                info: {
-                    mimetype: file.type,
-                    size: file.size
-                }
+                info: info
             };
         });
     } else {
@@ -1047,6 +1056,23 @@ function uploadMedia(file) {
             });
         };
         reader.readAsArrayBuffer(file);
+    });
+}
+
+function getImageDimensions(file) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = function () {
+            let dimensions = { w: img.width, h: img.height };
+            URL.revokeObjectURL(url);
+            resolve(dimensions);
+        };
+        img.onerror = function () {
+            URL.revokeObjectURL(url);
+            resolve({});
+        };
+        img.src = url;
     });
 }
 
